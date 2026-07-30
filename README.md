@@ -161,8 +161,3 @@ intentionally the full scope of what's built -- see Known limitations.
   first `WorkspaceMember` row found for a user; multi-workspace membership
   (one user belonging to several workspaces) isn't modeled in the UI.
 
-## Commit history
-
-Commit history reflects the actual build order this project was developed
-in, feature by feature -- it's a reasonable changelog if you want to see how
-a given piece was introduced.
