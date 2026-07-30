@@ -8,7 +8,7 @@ export default function DemoPage() {
       <h1>Widget demo host page</h1>
       <p>This page embeds the chat widget exactly as a customer&apos;s website would.</p>
       {/* eslint-disable-next-line @next/next/no-sync-scripts */}
-      <script src="/widget.js" data-workspace-id="WORKSPACE_ID_PLACEHOLDER"></script>
+      <script src="/widget.js" data-workspace-id="cms7q0gqz0000u77ob86emi05"></script>
     </main>
   );
 }
