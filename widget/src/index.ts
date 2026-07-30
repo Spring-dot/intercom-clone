@@ -13,6 +13,13 @@ type WidgetMessage = {
   createdAt: string;
 };
 
+type KbSearchResult = {
+  workspaceSlug: string;
+  articles: { id: string; title: string }[];
+};
+
+const KB_SEARCH_DEBOUNCE_MS = 300;
+
 const HOST_ELEMENT_ID = "ic-widget-host";
 
 (function boot() {
@@ -56,17 +63,29 @@ const HOST_ELEMENT_ID = "ic-widget-host";
         .msg { max-width: 85%; padding: 8px 10px; border-radius: 8px; font-size: 13px; line-height: 1.4; word-wrap: break-word; }
         .msg-contact { align-self: flex-end; background: #111827; color: #fff; }
         .msg-agent, .msg-ai, .msg-system { align-self: flex-start; background: #f3f4f6; color: #111827; }
-        #composer { display: flex; border-top: 1px solid #e5e7eb; }
+        #composer { display: flex; flex-direction: column; border-top: 1px solid #e5e7eb; }
+        #suggestions { display: flex; flex-direction: column; border-bottom: 1px solid #e5e7eb; }
+        #suggestions[hidden] { display: none; }
+        #suggestions button {
+          all: unset; cursor: pointer; padding: 8px 12px; font-size: 12px; color: #111827;
+          border-bottom: 1px solid #f3f4f6;
+        }
+        #suggestions button:hover { background: #f9fafb; }
+        #suggestions .suggestions-label { padding: 6px 12px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; }
+        #composer-row { display: flex; }
         #input { flex: 1; border: none; padding: 10px 12px; font-size: 13px; outline: none; }
-        #composer button { border: none; background: #111827; color: #fff; padding: 0 16px; font-size: 13px; cursor: pointer; }
+        #composer-row button { border: none; background: #111827; color: #fff; padding: 0 16px; font-size: 13px; cursor: pointer; }
       </style>
       <button id="bubble" aria-label="Open chat">💬</button>
       <div id="panel" hidden>
         <header>Chat with us</header>
         <div id="messages"></div>
+        <div id="suggestions" hidden></div>
         <form id="composer">
-          <input id="input" type="text" placeholder="Type a message..." autocomplete="off" />
-          <button type="submit">Send</button>
+          <div id="composer-row">
+            <input id="input" type="text" placeholder="Type a message..." autocomplete="off" />
+            <button type="submit">Send</button>
+          </div>
         </form>
       </div>
     `;
@@ -74,6 +93,7 @@ const HOST_ELEMENT_ID = "ic-widget-host";
     const bubble = shadow.getElementById("bubble") as HTMLButtonElement;
     const panel = shadow.getElementById("panel") as HTMLDivElement;
     const messagesEl = shadow.getElementById("messages") as HTMLDivElement;
+    const suggestionsEl = shadow.getElementById("suggestions") as HTMLDivElement;
     const composer = shadow.getElementById("composer") as HTMLFormElement;
     const input = shadow.getElementById("input") as HTMLInputElement;
 
@@ -125,6 +145,7 @@ const HOST_ELEMENT_ID = "ic-widget-host";
       const text = input.value.trim();
       if (!text || !conversationId || !visitorToken) return;
       input.value = "";
+      hideSuggestions();
       try {
         const res = await fetch(`${origin}/api/widget/messages`, {
           method: "POST",
@@ -137,6 +158,59 @@ const HOST_ELEMENT_ID = "ic-widget-host";
       } catch (err) {
         console.error("[widget] failed to send message", err);
       }
+    });
+
+    function hideSuggestions() {
+      suggestionsEl.hidden = true;
+      suggestionsEl.innerHTML = "";
+    }
+
+    function renderSuggestions(result: KbSearchResult) {
+      if (result.articles.length === 0) {
+        hideSuggestions();
+        return;
+      }
+      suggestionsEl.innerHTML = `<div class="suggestions-label">Suggested articles</div>`;
+      for (const article of result.articles.slice(0, 3)) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = article.title;
+        button.addEventListener("click", () => {
+          window.open(`${origin}/help-center/${result.workspaceSlug}/${article.id}`, "_blank", "noopener");
+        });
+        suggestionsEl.appendChild(button);
+      }
+      suggestionsEl.hidden = false;
+    }
+
+    let kbSearchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+    let kbSearchRequestId = 0;
+
+    input.addEventListener("input", () => {
+      const query = input.value.trim();
+      if (kbSearchDebounceTimer) clearTimeout(kbSearchDebounceTimer);
+
+      if (!query) {
+        hideSuggestions();
+        return;
+      }
+
+      kbSearchDebounceTimer = setTimeout(async () => {
+        const requestId = ++kbSearchRequestId;
+        try {
+          const res = await fetch(
+            `${origin}/api/kb-search?workspaceId=${encodeURIComponent(workspaceId)}&q=${encodeURIComponent(query)}`
+          );
+          if (!res.ok) throw new Error(`kb-search failed: ${res.status}`);
+          const result: KbSearchResult = await res.json();
+          // Ignore stale responses if a newer keystroke already fired
+          // another request while this one was in flight.
+          if (requestId !== kbSearchRequestId) return;
+          renderSuggestions(result);
+        } catch (err) {
+          console.error("[widget] kb-search failed", err);
+        }
+      }, KB_SEARCH_DEBOUNCE_MS);
     });
 
     startSession();

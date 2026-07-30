@@ -6,9 +6,12 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 const isProtectedRoute = createRouteMatcher([
   "/inbox(.*)",
   "/settings(.*)",
+  "/kb(.*)",
   "/api/inbox(.*)",
   "/api/settings(.*)",
   "/api/conversations(.*)",
+  "/api/articles(.*)",
+  "/api/categories(.*)",
 ]);
 
 // Called by anonymous website visitors (the embeddable widget) or by
@@ -19,7 +22,11 @@ const isProtectedRoute = createRouteMatcher([
 // net-catch it via a broad matcher. These routes still authenticate their
 // caller -- the widget via its opaque visitorToken, the webhook via
 // resend.webhooks.verify() -- just not through Clerk.
-const isPublicRoute = createRouteMatcher(["/api/widget(.*)", "/api/webhooks(.*)"]);
+const isPublicRoute = createRouteMatcher([
+  "/api/widget(.*)",
+  "/api/webhooks(.*)",
+  "/api/kb-search(.*)",
+]);
 
 export default clerkMiddleware(async (auth, req) => {
   if (isPublicRoute(req)) {
