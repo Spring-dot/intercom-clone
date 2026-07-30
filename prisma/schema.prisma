@@ -114,6 +114,11 @@ model Conversation {
   // The original inbound subject line, for email channel conversations only
   // -- replies reuse it as "Re: {emailSubject}".
   emailSubject String?
+  // JSON-encoded { whatUserWants, whatsBeenTried, currentStatus }, produced by
+  // summarizeConversation() in src/lib/ai.ts. Regenerated only when new
+  // messages exist since aiSummaryUpdatedAt (see that file for the cache rule).
+  aiSummary          String?
+  aiSummaryUpdatedAt DateTime?
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
 

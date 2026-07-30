@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { MessageComposer } from "./message-composer";
 import { ConversationControls } from "./conversation-controls";
 import { MessageList } from "./message-list";
+import { ConversationSummaryPanel } from "./conversation-summary-panel";
 
 export default async function ConversationDetailPage({
   params,
@@ -56,6 +57,11 @@ export default async function ConversationDetailPage({
           userId: m.userId,
           name: m.user.name ?? m.user.email,
         }))}
+      />
+
+      <ConversationSummaryPanel
+        conversationId={conversation.id}
+        messageCount={conversation.messages.length}
       />
 
       <MessageList
