@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import dns from "node:dns/promises";
 import { ensureWorkspace } from "@/lib/ensure-workspace";
 import { db } from "@/lib/db";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /**
  * Vercel assigns a UNIQUE CNAME target per project+domain -- e.g.
@@ -20,7 +21,11 @@ import { db } from "@/lib/db";
 const VERCEL_CNAME_PATTERN = /vercel-dns/i;
 
 export async function POST() {
-  const { workspaceId, role } = await ensureWorkspace();
+  const { workspaceId, userId, role } = await ensureWorkspace();
+
+  if (!(await checkRateLimit(userId))) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
 
   // No id param to target another workspace's domain with -- this always
   // verifies the caller's own workspace (from ensureWorkspace()).

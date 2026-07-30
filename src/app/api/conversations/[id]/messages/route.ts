@@ -3,6 +3,7 @@ import { ensureWorkspace } from "@/lib/ensure-workspace";
 import { db } from "@/lib/db";
 import { publishNewMessage } from "@/lib/pusher";
 import { sendReplyEmail } from "@/lib/email";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { Message } from "@/generated/prisma/client";
 
 export async function POST(
@@ -11,6 +12,10 @@ export async function POST(
 ) {
   const { id: conversationId } = await params;
   const { workspaceId, userId } = await ensureWorkspace();
+
+  if (!(await checkRateLimit(userId))) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
 
   const payload = await request.json().catch(() => null);
   const text = typeof payload?.body === "string" ? payload.body.trim() : "";

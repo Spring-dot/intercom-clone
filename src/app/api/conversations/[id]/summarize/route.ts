@@ -1,13 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ensureWorkspace } from "@/lib/ensure-workspace";
 import { summarizeConversation } from "@/lib/ai";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: conversationId } = await params;
-  const { workspaceId } = await ensureWorkspace();
+  const { workspaceId, userId } = await ensureWorkspace();
+
+  if (!(await checkRateLimit(userId))) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
 
   const result = await summarizeConversation(conversationId, workspaceId);
 

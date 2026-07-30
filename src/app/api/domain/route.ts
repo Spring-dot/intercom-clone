@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ensureWorkspace } from "@/lib/ensure-workspace";
 import { db } from "@/lib/db";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { Prisma } from "@/generated/prisma/client";
 
 /**
@@ -44,7 +45,11 @@ import { Prisma } from "@/generated/prisma/client";
 const DOMAIN_PATTERN = /^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/i;
 
 export async function POST(request: NextRequest) {
-  const { workspaceId, role } = await ensureWorkspace();
+  const { workspaceId, userId, role } = await ensureWorkspace();
+
+  if (!(await checkRateLimit(userId))) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
 
   // Tenant scoping comes from ensureWorkspace()'s workspaceId (the caller's
   // own workspace, same as every other route) -- there's no id param here

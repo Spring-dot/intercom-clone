@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ensureWorkspace } from "@/lib/ensure-workspace";
 import { db } from "@/lib/db";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { Prisma } from "@/generated/prisma/client";
 
 const VALID_STATUSES = new Set(["open", "snoozed", "resolved"]);
@@ -10,7 +11,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: conversationId } = await params;
-  const { workspaceId } = await ensureWorkspace();
+  const { workspaceId, userId } = await ensureWorkspace();
+
+  if (!(await checkRateLimit(userId))) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
 
   const payload = await request.json().catch(() => null);
   if (!payload || typeof payload !== "object") {
