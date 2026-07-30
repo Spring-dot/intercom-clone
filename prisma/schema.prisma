@@ -85,12 +85,16 @@ model Contact {
   name        String
   email       String?
   avatarUrl   String?
+  // Opaque id for anonymous widget visitors (the localStorage "visitorToken").
+  // Null for contacts created from the dashboard side.
+  externalId  String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   conversations Conversation[]
 
+  @@unique([workspaceId, externalId])
   @@index([workspaceId])
 }
 
@@ -101,6 +105,7 @@ model Conversation {
   assigneeId  String?
   channel     ConversationChannel
   status      ConversationStatus  @default(open)
+  snoozedUntil DateTime?
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
 
