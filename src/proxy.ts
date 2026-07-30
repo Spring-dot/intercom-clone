@@ -12,6 +12,7 @@ const isProtectedRoute = createRouteMatcher([
   "/api/conversations(.*)",
   "/api/articles(.*)",
   "/api/categories(.*)",
+  "/api/domain(.*)",
 ]);
 
 // Called by anonymous website visitors (the embeddable widget) or by

@@ -46,6 +46,12 @@ model Workspace {
   // (see src/lib/email.ts) -- how the inbound webhook resolves which
   // workspace an email belongs to.
   slug      String   @unique
+  // Vanity domain for the public help center (e.g. help.theircompany.com).
+  // Setting this only records intent + lets us DNS-verify it -- it does NOT
+  // by itself make the domain serve traffic. See the big comment at the top
+  // of src/app/api/domain/route.ts for what else that actually requires.
+  customDomain         String?  @unique
+  customDomainVerified Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
