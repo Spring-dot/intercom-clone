@@ -89,7 +89,7 @@ export function DomainSettings({
         </label>
         <p className="text-xs text-gray-500">
           Use a subdomain (e.g. help.yourcompany.com), not your bare root domain -- root
-          domains need a different DNS record type (A/ALIAS) that Vercel's dashboard will
+          domains need a different DNS record type (A/ALIAS) that Vercel&apos;s dashboard will
           show you separately.
         </p>
         <button

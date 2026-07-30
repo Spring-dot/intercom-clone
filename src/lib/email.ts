@@ -53,6 +53,47 @@ export function normalizeMessageId(id: string): string {
 }
 
 /**
+ * Emails a team invitation link. Returns whether it actually went out rather
+ * than throwing, because the invite does not depend on this succeeding: the
+ * invited address is redeemed automatically when they sign in, and the admin
+ * gets a copyable link either way. Until a sending domain is verified in
+ * Resend this will fail every time, and that must not surface to the admin as
+ * "inviting failed" when the invitation itself was created fine.
+ */
+export async function sendInvitationEmail({
+  to,
+  workspaceName,
+  inviteUrl,
+}: {
+  to: string;
+  workspaceName: string;
+  inviteUrl: string;
+}): Promise<boolean> {
+  try {
+    const { error } = await getResend().emails.send({
+      from: EMAIL_FROM_ADDRESS,
+      to,
+      subject: `You've been invited to ${workspaceName}`,
+      text: [
+        `You've been invited to join ${workspaceName} on our support platform.`,
+        "",
+        `Accept the invitation: ${inviteUrl}`,
+        "",
+        "If you weren't expecting this, you can ignore this email.",
+      ].join("\n"),
+    });
+    if (error) {
+      console.error("[email] failed to send invitation", error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("[email] failed to send invitation", error);
+    return false;
+  }
+}
+
+/**
  * Sends an agent's reply as an email through Resend, threading it against
  * the conversation's prior email messages, then records it as a Message row.
  * `inReplyTo`/`references` are the caller's job to compute (usually: every

@@ -56,6 +56,7 @@ model Workspace {
   updatedAt DateTime @updatedAt
 
   members       WorkspaceMember[]
+  invitations   Invitation[]
   contacts      Contact[]
   conversations Conversation[]
   categories    Category[]
@@ -73,6 +74,7 @@ model User {
   memberships       WorkspaceMember[]
   assignedTo        Conversation[]    @relation("ConversationAssignee")
   authoredMessages   Message[]
+  sentInvitations   Invitation[]      @relation("InvitationInviter")
 }
 
 model WorkspaceMember {
@@ -80,6 +82,11 @@ model WorkspaceMember {
   workspaceId String
   userId      String
   role        WorkspaceRole @default(agent)
+  // Heartbeated by the dashboard shell every AGENT_HEARTBEAT_MS (see
+  // src/lib/presence.ts). Read to decide whether the widget shows "We're
+  // online" -- absence of a recent beat is what "offline" means, so no
+  // explicit disconnect event is needed (a closed laptop just stops beating).
+  lastSeenAt  DateTime?
   createdAt   DateTime      @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -87,6 +94,35 @@ model WorkspaceMember {
 
   @@unique([workspaceId, userId])
   @@index([userId])
+}
+
+// A pending invite for someone who may not have a Clerk account yet, which is
+// why this keys off `email` rather than a userId. Redeemed in
+// ensureWorkspace(): on first sign-in we look for a pending invitation
+// matching the new user's verified Clerk email and join them to that
+// workspace instead of creating a fresh one for them.
+model Invitation {
+  id          String        @id @default(cuid())
+  workspaceId String
+  email       String
+  role        WorkspaceRole @default(agent)
+  // Random, unguessable; the /invite/{token} link an admin shares. Redeeming
+  // still requires the signed-in user's email to match `email`, so a leaked
+  // token alone can't get a stranger into the workspace.
+  token       String        @unique
+  invitedById String?
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+  expiresAt   DateTime
+  createdAt   DateTime      @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy User?     @relation("InvitationInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  // One live invite per email per workspace; re-inviting updates the existing
+  // row (new token, new expiry) rather than piling up duplicates.
+  @@unique([workspaceId, email])
+  @@index([email])
 }
 
 model Contact {
@@ -98,6 +134,10 @@ model Contact {
   // Opaque id for anonymous widget visitors (the localStorage "visitorToken").
   // Null for contacts created from the dashboard side.
   externalId  String?
+  // Heartbeated by the widget while its panel is open; the inbox uses it to
+  // show whether the visitor is still on the page (same "recent beat = online"
+  // rule as WorkspaceMember.lastSeenAt).
+  lastSeenAt  DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -125,6 +165,12 @@ model Conversation {
   // messages exist since aiSummaryUpdatedAt (see that file for the cache rule).
   aiSummary          String?
   aiSummaryUpdatedAt DateTime?
+  // Read receipts. Stored per side as a watermark timestamp rather than a
+  // per-message flag: "everything created at or before this instant has been
+  // seen by that side". One row to update on read instead of N, and a message
+  // arriving later is automatically unread without any backfill.
+  agentLastReadAt   DateTime?
+  contactLastReadAt DateTime?
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
 
@@ -135,6 +181,10 @@ model Conversation {
 
   @@index([workspaceId])
   @@index([contactId])
+  // Serves the inbox's status filter and, together with snoozedUntil, the
+  // reopen sweep in /api/cron/reopen-snoozed.
+  @@index([workspaceId, status])
+  @@index([status, snoozedUntil])
 }
 
 model Message {
