@@ -1,0 +1,162 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WorkspaceRole {
+  admin
+  agent
+}
+
+enum ConversationChannel {
+  chat
+  email
+}
+
+enum ConversationStatus {
+  open
+  snoozed
+  resolved
+}
+
+enum MessageSenderType {
+  contact
+  agent
+  ai
+  system
+}
+
+enum ArticleStatus {
+  draft
+  published
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members       WorkspaceMember[]
+  contacts      Contact[]
+  conversations Conversation[]
+  categories    Category[]
+  articles      Article[]
+}
+
+// Clerk user, mirrored locally by id = Clerk userId
+model User {
+  id        String   @id
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships       WorkspaceMember[]
+  assignedTo        Conversation[]    @relation("ConversationAssignee")
+  authoredMessages   Message[]
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole @default(agent)
+  createdAt   DateTime      @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+}
+
+model Contact {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  email       String?
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@index([workspaceId])
+}
+
+model Conversation {
+  id          String              @id @default(cuid())
+  workspaceId String
+  contactId   String
+  assigneeId  String?
+  channel     ConversationChannel
+  status      ConversationStatus  @default(open)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contact   Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  assignee  User?     @relation("ConversationAssignee", fields: [assigneeId], references: [id])
+  messages  Message[]
+
+  @@index([workspaceId])
+  @@index([contactId])
+}
+
+model Message {
+  id             String            @id @default(cuid())
+  workspaceId    String
+  conversationId String
+  senderType     MessageSenderType
+  authorId       String?
+  body           String
+  createdAt      DateTime          @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  author       User?        @relation(fields: [authorId], references: [id])
+
+  @@index([workspaceId])
+  @@index([conversationId])
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  slug        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  articles  Article[]
+
+  @@unique([workspaceId, slug])
+}
+
+model Article {
+  id          String        @id @default(cuid())
+  workspaceId String
+  categoryId  String
+  title       String
+  slug        String
+  content     String
+  status      ArticleStatus @default(draft)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  category  Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, slug])
+  @@index([categoryId])
+}
