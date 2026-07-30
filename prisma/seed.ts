@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { slugify } from "../src/lib/slug";
 
 const db = new PrismaClient();
 
@@ -20,7 +21,7 @@ async function main() {
   });
 
   const workspace = await db.workspace.create({
-    data: { name: "Demo Workspace" },
+    data: { name: "Demo Workspace", slug: slugify("Demo Workspace") },
   });
 
   await db.workspaceMember.create({

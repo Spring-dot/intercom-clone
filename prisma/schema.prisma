@@ -42,6 +42,10 @@ enum ArticleStatus {
 model Workspace {
   id        String   @id @default(cuid())
   name      String
+  // Used for the inbound-email address pattern support+{slug}@EMAIL_DOMAIN
+  // (see src/lib/email.ts) -- how the inbound webhook resolves which
+  // workspace an email belongs to.
+  slug      String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -95,6 +99,7 @@ model Contact {
   conversations Conversation[]
 
   @@unique([workspaceId, externalId])
+  @@unique([workspaceId, email])
   @@index([workspaceId])
 }
 
@@ -106,6 +111,9 @@ model Conversation {
   channel     ConversationChannel
   status      ConversationStatus  @default(open)
   snoozedUntil DateTime?
+  // The original inbound subject line, for email channel conversations only
+  // -- replies reuse it as "Re: {emailSubject}".
+  emailSubject String?
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
 
@@ -125,6 +133,14 @@ model Message {
   senderType     MessageSenderType
   authorId       String?
   body           String
+  // RFC 5322 Message-ID of this specific message, when it travels over
+  // email -- either one we minted for an outbound reply, or the sending
+  // mail server's own id for an inbound message. Not unique (a redelivered
+  // inbound webhook could try to insert the same id twice; deduped in the
+  // webhook handler rather than at the DB constraint level).
+  emailMessageId String?
+  // The In-Reply-To header value this message carried, if any.
+  emailInReplyTo String?
   createdAt      DateTime          @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
@@ -132,6 +148,7 @@ model Message {
 
   @@index([workspaceId])
   @@index([conversationId])
+  @@index([emailMessageId])
 }
 
 model Category {

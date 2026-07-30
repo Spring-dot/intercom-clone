@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { checkWidgetRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/request-ip";
 import { widgetCorsHeaders } from "@/lib/cors";
 
@@ -10,7 +10,7 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: NextRequest) {
-  const allowed = await checkWidgetRateLimit(getClientIp(request));
+  const allowed = await checkRateLimit(getClientIp(request));
   if (!allowed) {
     return NextResponse.json(
       { error: "Too many requests" },

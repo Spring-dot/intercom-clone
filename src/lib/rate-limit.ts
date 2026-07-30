@@ -11,7 +11,7 @@ function getRatelimit(): Ratelimit | null {
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) {
     console.warn(
-      "[rate-limit] UPSTASH_REDIS_REST_URL/TOKEN are not set -- widget rate limiting is disabled (failing open)."
+      "[rate-limit] UPSTASH_REDIS_REST_URL/TOKEN are not set -- public-route rate limiting is disabled (failing open)."
     );
     ratelimit = null;
     return ratelimit;
@@ -20,13 +20,17 @@ function getRatelimit(): Ratelimit | null {
   ratelimit = new Ratelimit({
     redis: new Redis({ url, token }),
     limiter: Ratelimit.slidingWindow(20, "60 s"),
-    prefix: "widget-ratelimit",
+    prefix: "public-route-ratelimit",
   });
   return ratelimit;
 }
 
-/** Returns true if the request should proceed. Fails open if Upstash isn't configured. */
-export async function checkWidgetRateLimit(ip: string): Promise<boolean> {
+/**
+ * Returns true if the request should proceed. Used by every unauthenticated
+ * route (widget session/messages, the inbound email webhook), keyed by IP.
+ * Fails open if Upstash isn't configured.
+ */
+export async function checkRateLimit(ip: string): Promise<boolean> {
   const rl = getRatelimit();
   if (!rl) return true;
   const { success } = await rl.limit(ip);

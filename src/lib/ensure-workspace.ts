@@ -1,6 +1,7 @@
 import "server-only";
 import { currentUser } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
+import { slugify } from "@/lib/slug";
 
 export type EnsuredWorkspace = {
   workspaceId: string;
@@ -54,8 +55,9 @@ export async function ensureWorkspace(): Promise<EnsuredWorkspace> {
     });
     if (raceCheck) return raceCheck;
 
+    const workspaceName = name ? `${name}'s Workspace` : "My Workspace";
     const workspace = await tx.workspace.create({
-      data: { name: name ? `${name}'s Workspace` : "My Workspace" },
+      data: { name: workspaceName, slug: slugify(workspaceName) },
     });
 
     return tx.workspaceMember.create({

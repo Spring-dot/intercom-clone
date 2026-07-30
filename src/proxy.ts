@@ -11,15 +11,18 @@ const isProtectedRoute = createRouteMatcher([
   "/api/conversations(.*)",
 ]);
 
-// Called by anonymous website visitors through the embeddable widget --
-// must never require a Clerk session. Listed explicitly (rather than just
-// relying on it not being in isProtectedRoute) so it reads as a deliberate
-// decision, not an oversight, and so a future edit to isProtectedRoute can't
-// accidentally net-catch it via a broad matcher.
-const isPublicWidgetRoute = createRouteMatcher(["/api/widget(.*)"]);
+// Called by anonymous website visitors (the embeddable widget) or by
+// third-party providers (the inbound-email webhook) -- must never require a
+// Clerk session. Listed explicitly (rather than just relying on it not being
+// in isProtectedRoute) so it reads as a deliberate decision, not an
+// oversight, and so a future edit to isProtectedRoute can't accidentally
+// net-catch it via a broad matcher. These routes still authenticate their
+// caller -- the widget via its opaque visitorToken, the webhook via
+// resend.webhooks.verify() -- just not through Clerk.
+const isPublicRoute = createRouteMatcher(["/api/widget(.*)", "/api/webhooks(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (isPublicWidgetRoute(req)) {
+  if (isPublicRoute(req)) {
     return;
   }
   if (isProtectedRoute(req)) {
